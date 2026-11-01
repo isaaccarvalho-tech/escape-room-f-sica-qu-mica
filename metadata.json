@@ -1,0 +1,6 @@
+{
+  "name": "Escape Room: Treinamento Científico",
+  "description": "Simulador educacional de Química e Física estilo Cockpit Espacial para Chromebooks, com missões interativas em equipe e simulador de lançamento horizontal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

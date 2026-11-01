@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Escape Room: Treinamento Científico</title>
+    <meta name="description" content="Simulador educacional de Química e Física estilo Cockpit Espacial para Chromebooks, em arquivo único autônomo com React 18, Babel e Tailwind CSS via CDN." />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              orbitron: ['Orbitron', 'sans-serif'],
+              rajdhani: ['Rajdhani', 'sans-serif'],
+              mono: ['"IBM Plex Mono"', 'monospace'],
+            },
+            colors: {
+              space: '#090D16',
+              spaceDark: '#090916',
+              neonCyan: '#00F0FF',
+              neonGreen: '#00FF66',
+              neonAlert: '#FF3366',
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- React 18, ReactDOM 18 & Babel Standalone via CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      :root {
+        --font-orbitron: 'Orbitron', -apple-system, sans-serif;
+        --font-rajdhani: 'Rajdhani', -apple-system, sans-serif;
+        --font-mono: 'IBM Plex Mono', monospace;
+      }
+      body {
+        font-family: var(--font-rajdhani);
+        background-color: #090D16;
+        color: #F1F5F9;
+      }
+      h1, h2, h3, .font-display {
+        font-family: var(--font-orbitron);
+      }
+      code, pre, .font-code {
+        font-family: var(--font-mono);
+      }
+      .sci-fi-grid {
+        background-image: 
+          linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(0, 240, 255, 0.25);
+        border-radius: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 240, 255, 0.5);
+      }
+      @keyframes scanline {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(1000%); }
+      }
+      .scanline {
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 10px;
+        background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.15), transparent);
+        animation: scanline 8s linear infinite;
+        pointer-events: none;
+        z-index: 40;
+      }
+    </style>
+  </head>
+  <body class="bg-[#090D16] text-slate-100 antialiased overflow-hidden select-none">
+    <div id="root"></div>
+
+    <!-- Complete Standalone React 18 Application with Babel -->
+    <script type="text/babel">
+      const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+      /* =========================================================================
+         ESCAPE ROOM: TREINAMENTO CIENTÍFICO (QUÍMICA & FÍSICA - 1ª SÉRIE EM)
+         ARQUIVO ÚNICO AUTÔNOMO: REACT 18 + BABEL + TAILWIND VIA CDN
+         ========================================================================= */
+
+      const GROUPS = [
+        { id: 'G1', name: 'Grupo 1 - Hélio', element: 'Hélio', symbol: 'He', themeColor: '#00F0FF' },
+        { id: 'G2', name: 'Grupo 2 - Neônio', element: 'Neônio', symbol: 'Ne', themeColor: '#FF6B00' },
+        { id: 'G3', name: 'Grupo 3 - Argônio', element: 'Argônio', symbol: 'Ar', themeColor: '#A855F7' },
+        { id: 'G4', name: 'Grupo 4 - Criptônio', element: 'Criptônio', symbol: 'Kr', themeColor: '#00FF66' },
+        { id: 'G5', name: 'Grupo 5 - Xenônio', element: 'Xenônio', symbol: 'Xe', themeColor: '#3B82F6' },
+        { id: 'G6', name: 'Grupo 6 - Radônio', element: 'Radônio', symbol: 'Rn', themeColor: '#EC4899' },
+        { id: 'G7', name: 'Grupo 7 - Fóton', element: 'Fóton', symbol: 'γ', themeColor: '#FACC15' },
+        { id: 'G8', name: 'Grupo 8 - Plasma', element: 'Plasma', symbol: '⚡', themeColor: '#E11D48' },
+      ];
+
+      const NOX_MASTER_CODES = {
+        G1: '+7',
+        G2: '+6',
+        G3: '+5',
+        G4: '+4',
+        G5: '+1',
+        G6: '+6',
+        G7: '-3',
+        G8: '+5',
+      };
+
+      const MISSIONS_DATA = {
+        G1: {
+          m1: { formula: 'CO2', centralAtom: 'Carbono (C)', ligands: 'Dois Oxigênios (O)', freePairs: 0, totalDomains: 2, description: 'Carbono central ligado a dois oxigênios (O=C=O); sem pares de elétrons livres no átomo central; simétrica linear.', correctGeometry: 'Linear', correctPolarity: 'Apolar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Água', formula: 'H2O', correctForce: 'Ligação de hidrogênio', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'V constante (Isocórica)', variableFixed: 'Volume (V = cte)', variableChanged: 'Temperatura (T)', changeDirection: 'aumenta', variableTarget: 'Pressão (P)', correctAnswer: 'Aumenta', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Colher metálica em bebida quente', correctFlow: 'Bebida -> colher', flowOptions: ['Bebida -> colher', 'Colher -> bebida', 'Fluxo contínuo sem cessar', 'O frio da colher migra para o café'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'KMnO4', targetElement: 'Manganês (Mn)', correctNox: '+7', knownNoxHint: 'K = +1 e cada O = -2 (são 4 O = -8).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 4 mol de H2 reagem com excesso de O2, quantos mol de H2O são formados?', unit: 'mol de H2O', correctValue: 4, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G2: {
+          m1: { formula: 'H2O', centralAtom: 'Oxigênio (O)', ligands: 'Dois Hidrogênios (H)', freePairs: 2, totalDomains: 4, description: 'Oxigênio central com duas ligações O-H e 2 pares livres; repulsão gera arranjo angular (~104,5°).', correctGeometry: 'Angular', correctPolarity: 'Polar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Amônia', formula: 'NH3', correctForce: 'Ligação de hidrogênio', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'V constante (Isocórica)', variableFixed: 'Volume (V = cte)', variableChanged: 'Temperatura (T)', changeDirection: 'diminui', variableTarget: 'Pressão (P)', correctAnswer: 'Diminui', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Gelo em água à temperatura ambiente', correctFlow: 'Água -> gelo', flowOptions: ['Água -> gelo', 'Gelo -> água', 'O frio se transfere para a água', 'Não há fluxo de calor'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'H2SO4', targetElement: 'Enxofre (S)', correctNox: '+6', knownNoxHint: 'H = +1 (são 2 H) e O = -2 (são 4 O).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 3 mol de O2 reagem completamente com H2, quantos mol de H2O são formados?', unit: 'mol de H2O', correctValue: 6, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G3: {
+          m1: { formula: 'NH3', centralAtom: 'Nitrogênio (N)', ligands: 'Três Hidrogênios (H)', freePairs: 1, totalDomains: 4, description: 'Nitrogênio com 3 ligações N-H e 1 par livre; geometria piramidal assimétrica.', correctGeometry: 'Piramidal', correctPolarity: 'Polar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Metano', formula: 'CH4', correctForce: 'Forças de London', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'T constante (Isotérmica)', variableFixed: 'Temperatura (T = cte)', variableChanged: 'Volume (V)', changeDirection: 'diminui', variableTarget: 'Pressão (P)', correctAnswer: 'Aumenta', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Água aquecida em panela', correctFlow: 'Fonte/panela -> água', flowOptions: ['Fonte/panela -> água', 'Água -> panela/fonte', 'Não ocorre transferência', 'A água dissipa energia para o fogo'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'HNO3', targetElement: 'Nitrogênio (N)', correctNox: '+5', knownNoxHint: 'H = +1 e O = -2 (são 3 O = -6).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 6 mol de H2O foram formados na síntese, quantos mol de H2 foram consumidos?', unit: 'mol de H2', correctValue: 6, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G4: {
+          m1: { formula: 'CH4', centralAtom: 'Carbono (C)', ligands: 'Quatro Hidrogênios (H)', freePairs: 0, totalDomains: 4, description: 'Carbono central com 4 ligações simples simétricas a 109,5°; apolar.', correctGeometry: 'Tetraédrica', correctPolarity: 'Apolar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Cloreto de Hidrogênio', formula: 'HCl', correctForce: 'Dipolo-dipolo', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'T constante (Isotérmica)', variableFixed: 'Temperatura (T = cte)', variableChanged: 'Volume (V)', changeDirection: 'aumenta', variableTarget: 'Pressão (P)', correctAnswer: 'Diminui', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Bebida quente em garrafa térmica', correctFlow: 'Reduzir trocas com o ambiente; energia tende a sair da bebida', flowOptions: ['Reduzir trocas com o ambiente; energia tende a sair da bebida', 'O calor migra do ambiente para o café quente', 'A garrafa aquece ativamente o café', 'Ocorre aumento espontâneo da temperatura'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'CO2', targetElement: 'Carbono (C)', correctNox: '+4', knownNoxHint: 'Cada O possui NOX = -2 (são 2 O = -4).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 5 mol de O2 reagem completamente, quantos mol de H2 são necessários?', unit: 'mol de H2', correctValue: 10, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G5: {
+          m1: { formula: 'BF3', centralAtom: 'Boro (B)', ligands: 'Três Flúors (F)', freePairs: 0, totalDomains: 3, description: 'Boro central com 3 ligantes a 120° coplanares; sem par livre; apolar.', correctGeometry: 'Trigonal plana', correctPolarity: 'Apolar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Dióxido de Carbono', formula: 'CO2', correctForce: 'Forças de London', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'T constante (Isotérmica)', variableFixed: 'Temperatura (T = cte)', variableChanged: 'Pressão (P)', changeDirection: 'aumenta', variableTarget: 'Volume (V)', correctAnswer: 'Diminui', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Duas barras metálicas em contato térmico', correctFlow: 'Barra quente -> barra fria', flowOptions: ['Barra quente -> barra fria', 'Barra fria -> barra quente', 'O calor não se propaga em metais', 'A barra fria dissipa frio para a quente'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'NaClO', targetElement: 'Cloro (Cl)', correctNox: '+1', knownNoxHint: 'Na = +1 e O = -2.', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 4 g de H2 reagem com excesso de O2, qual a massa em g de H2O formada? (H=1, O=16)', unit: 'g de H2O', correctValue: 36, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G6: {
+          m1: { formula: 'SO2', centralAtom: 'Enxofre (S)', ligands: 'Dois Oxigênios (O)', freePairs: 1, totalDomains: 3, description: 'Enxofre central com dois oxigênios e um par livre gerando repulsão angular (~119°); polar.', correctGeometry: 'Angular', correctPolarity: 'Polar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Fluoreto de Hidrogênio', formula: 'HF', correctForce: 'Ligação de hidrogênio', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'T constante (Isotérmica)', variableFixed: 'Temperatura (T = cte)', variableChanged: 'Pressão (P)', changeDirection: 'diminui', variableTarget: 'Volume (V)', correctAnswer: 'Aumenta', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Pessoa sopra sobre bebida quente', correctFlow: 'Bebida perde energia mais rapidamente para o ar/ambiente', flowOptions: ['Bebida perde energia mais rapidamente para o ar/ambiente', 'O sopro transfere calor para a sopa', 'A temperatura da sopa não se altera', 'O calor do ambiente entra na xícara'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'K2Cr2O7', targetElement: 'Cromo (Cr)', correctNox: '+6', knownNoxHint: 'K = +1 (são 2 K = +2) e O = -2 (são 7 O = -14). Os 2 Cr somam +12.', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 32 g de O2 reagem completamente com H2, qual a massa em g de H2O formada? (O=16, H=1)', unit: 'g de H2O', correctValue: 36, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G7: {
+          m1: { formula: 'BeCl2', centralAtom: 'Berílio (Be)', ligands: 'Dois Cloros (Cl)', freePairs: 0, totalDomains: 2, description: 'Berílio central com dois cloros a 180°; sem pares livres no átomo central; linear apolar.', correctGeometry: 'Linear', correctPolarity: 'Apolar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Sulfeto de Hidrogênio', formula: 'H2S', correctForce: 'Dipolo-dipolo', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'P constante (Isobárica)', variableFixed: 'Pressão (P = cte)', variableChanged: 'Temperatura (T)', changeDirection: 'aumenta', variableTarget: 'Volume (V)', correctAnswer: 'Aumenta', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Superfícies clara e escura recebem radiação', correctFlow: 'Ambas recebem energia (diferença de absorção)', flowOptions: ['Ambas recebem energia (diferença de absorção)', 'Nenhuma superfície absorve calor no espaço', 'A face clara dissipa calor e a escura não recebe nada', 'Apenas a face branca aquece'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'NH3', targetElement: 'Nitrogênio (N)', correctNox: '-3', knownNoxHint: 'O nitrogênio é mais eletronegativo e cada H tem NOX = +1 (são 3 H = +3).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 72 g de H2O foram formados, qual a massa em g de H2 consumida? (H=1, O=16)', unit: 'g de H2', correctValue: 8, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        },
+        G8: {
+          m1: { formula: 'PCl3', centralAtom: 'Fósforo (P)', ligands: 'Três Cloros (Cl)', freePairs: 1, totalDomains: 4, description: 'Fósforo central com 3 cloros e 1 par livre; geometria piramidal e resultante diferente de zero.', correctGeometry: 'Piramidal', correctPolarity: 'Polar', hints: ['Conte quantas regiões eletrônicas existem ao redor do átomo central.', 'Pares de elétrons livres também alteram a forma da molécula.', 'Compare a estrutura com os modelos linear, angular, trigonal plana, piramidal e tetraédrica; depois verifique se os vetores de polaridade se anulam.'] },
+          m2: { substance: 'Metanol', formula: 'CH3OH', correctForce: 'Ligação de hidrogênio', hints: ['Primeiro determine se a molécula é polar ou apolar.', 'Moléculas apolares apresentam forças de London como interação predominante; moléculas polares podem apresentar dipolo-dipolo.', 'Procure H ligado diretamente a F, O ou N. Quando isso ocorre, considere ligação de hidrogênio.'] },
+          m3: { condition: 'P constante (Isobárica)', variableFixed: 'Pressão (P = cte)', variableChanged: 'Temperatura (T)', changeDirection: 'diminui', variableTarget: 'Volume (V)', correctAnswer: 'Diminui', hints: ['Destaque qual grandeza permanece constante.', 'Com T constante, P e V variam inversamente; com V constante, P acompanha T; com P constante, V acompanha T.', 'Escreva apenas setas antes de responder: ↑, ↓ ou constante para P, V e T.'] },
+          m4: { scenarioTitle: 'Panela quente sobre bancada mais fria', correctFlow: 'Panela -> bancada/ambiente', flowOptions: ['Panela -> bancada/ambiente', 'Bancada/ambiente -> panela', 'O calor não se transfere', 'Ocorre congelamento instantâneo'], keyword: 'Equilíbrio Térmico', hints: ['Compare as temperaturas iniciais dos corpos.', 'Espontaneamente, a energia térmica é transferida do corpo de maior temperatura para o de menor temperatura.', 'A palavra-chave para o estado final é equilíbrio térmico.'] },
+          m5: { compound: 'H3PO4', targetElement: 'Fósforo (P)', correctNox: '+5', knownNoxHint: 'H = +1 (são 3 H = +3) e O = -2 (são 4 O = -8).', hints: ['Atribua primeiro os NOX conhecidos, como H = +1 e O = -2.', 'Em uma espécie neutra, a soma algébrica dos NOX deve ser zero.', 'Monte uma equação usando os índices da fórmula e isole o NOX desconhecido.'] },
+          m6: { reaction: '2 H2 + O2 -> 2 H2O', promptText: 'Se 9 mol de H2O foram formados, quantos mol de O2 foram consumidos?', unit: 'mol de O2', correctValue: 4.5, hints: ['Comece pela proporção indicada pelos coeficientes da equação balanceada.', 'A proporção em mol é 2:1:2 para H2 : O2 : H2O.', 'Para questões de massa, converta massa <-> mol usando a massa molar.'] }
+        }
+      };
+
+      const PERIODIC_ELEMENTS = [
+        { z: 1, symbol: 'H', name: 'Hidrogênio', mass: 1.0, group: 'Não-metal' },
+        { z: 2, symbol: 'He', name: 'Hélio', mass: 4.0, group: 'Gás Nobre' },
+        { z: 3, symbol: 'Li', name: 'Lítio', mass: 6.9, group: 'Metal Alcalino' },
+        { z: 4, symbol: 'Be', name: 'Berílio', mass: 9.0, group: 'Alcalino-terroso' },
+        { z: 5, symbol: 'B', name: 'Boro', mass: 10.8, group: 'Semimetal' },
+        { z: 6, symbol: 'C', name: 'Carbono', mass: 12.0, group: 'Não-metal' },
+        { z: 7, symbol: 'N', name: 'Nitrogênio', mass: 14.0, group: 'Não-metal' },
+        { z: 8, symbol: 'O', name: 'Oxigênio', mass: 16.0, group: 'Calcogênio' },
+        { z: 9, symbol: 'F', name: 'Flúor', mass: 19.0, group: 'Halogênio' },
+        { z: 10, symbol: 'Ne', name: 'Neônio', mass: 20.2, group: 'Gás Nobre' },
+        { z: 11, symbol: 'Na', name: 'Sódio', mass: 23.0, group: 'Metal Alcalino' },
+        { z: 12, symbol: 'Mg', name: 'Magnésio', mass: 24.3, group: 'Alcalino-terroso' },
+        { z: 13, symbol: 'Al', name: 'Alumínio', mass: 27.0, group: 'Metal' },
+        { z: 14, symbol: 'Si', name: 'Silício', mass: 28.1, group: 'Semimetal' },
+        { z: 15, symbol: 'P', name: 'Fósforo', mass: 31.0, group: 'Não-metal' },
+        { z: 16, symbol: 'S', name: 'Enxofre', mass: 32.0, group: 'Calcogênio' },
+        { z: 17, symbol: 'Cl', name: 'Cloro', mass: 35.5, group: 'Halogênio' },
+        { z: 18, symbol: 'Ar', name: 'Argônio', mass: 40.0, group: 'Gás Nobre' },
+        { z: 19, symbol: 'K', name: 'Potássio', mass: 39.1, group: 'Metal Alcalino' },
+        { z: 20, symbol: 'Ca', name: 'Cálcio', mass: 40.1, group: 'Alcalino-terroso' },
+        { z: 24, symbol: 'Cr', name: 'Cromo', mass: 52.0, group: 'Metal Transição' },
+        { z: 25, symbol: 'Mn', name: 'Manganês', mass: 55.0, group: 'Metal Transição' },
+      ];
+
+      const FORMULAS_DATA = [
+        { cat: 'Gases Ideais', items: [{ name: 'Lei Geral dos Gases', form: '(P₁·V₁)/T₁ = (P₂·V₂)/T₂' }, { name: 'Isotérmica (T cte)', form: 'P₁·V₁ = P₂·V₂' }, { name: 'Isobárica (P cte)', form: 'V₁/T₁ = V₂/T₂' }, { name: 'Isocórica (V cte)', form: 'P₁/T₁ = P₂/T₂' }] },
+        { cat: 'Estequiometria', items: [{ name: 'Massa Molar Água', form: 'H₂O = 18 g/mol' }, { name: 'Massa Molar O₂', form: 'O₂ = 32 g/mol' }, { name: 'Massa Molar H₂', form: 'H₂ = 2 g/mol' }, { name: 'Proporção Molar', form: '2 H₂ + 1 O₂ → 2 H₂O' }] },
+        { cat: 'Termodinâmica', items: [{ name: 'Fluxo Espontâneo', form: 'T_maior → T_menor' }, { name: 'Calor Sensível', form: 'Q = m·c·ΔT' }, { name: 'Equilíbrio Térmico', form: 'T₁ = T₂ (Final)' }] },
+        { cat: 'Lançamento Horizontal', items: [{ name: 'Tempo de Queda', form: 't_queda = √(2h / g)' }, { name: 'Alcance Horizontal', form: 'Alcance = Vx · t_queda' }, { name: 'Velocidade Impacto', form: 'V = √(Vx² + Vy²)' }] }
+      ];
+
+      const NOX_RULES = [
+        { rule: 'Substância Simples', val: 'NOX = 0' },
+        { rule: 'Hidrogênio (H)', val: '+1 geral' },
+        { rule: 'Oxigênio (O)', val: '-2 geral' },
+        { rule: 'Metais Alcalinos (K, Na)', val: '+1 fixo' },
+        { rule: 'Espécie Neutra', val: 'Σ NOX = 0' }
+      ];
+
+      // Web Audio Synthesizer
+      class SoundEngine {
+        constructor() { this.ctx = null; this.enabled = true; }
+        init() {
+          if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        }
+        playClick() {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.04);
+            gain.gain.setValueAtTime(0.08, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+          } catch(e){}
+        }
+        playSuccess() {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+              const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+              osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+              gain.gain.setValueAtTime(0, this.ctx.currentTime + i * 0.08);
+              gain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + i * 0.08 + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.08 + 0.35);
+              osc.connect(gain); gain.connect(this.ctx.destination);
+              osc.start(this.ctx.currentTime + i * 0.08); osc.stop(this.ctx.currentTime + i * 0.08 + 0.4);
+            });
+          } catch(e){}
+        }
+        playError() {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(140, this.ctx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.18, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+          } catch(e){}
+        }
+        playHintUnlock() {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = 'sine'; osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.12, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+          } catch(e){}
+        }
+        playLaunch() {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            const bufferSize = this.ctx.sampleRate * 1.5;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+            const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(300, this.ctx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(1500, this.ctx.currentTime + 0.5);
+            filter.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 1.4);
+            const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 0.3);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.4);
+            noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+            noise.start(); noise.stop(this.ctx.currentTime + 1.4);
+          } catch(e){}
+        }
+        playImpact(success) {
+          if (!this.enabled) return;
+          try {
+            this.init(); if (!this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = success ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(success ? 587 : 120, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(success ? 880 : 40, this.ctx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.4);
+          } catch(e){}
+        }
+      }
+      const sound = new SoundEngine();
+
+      /* =========================================================================
+         REACT APPLICATION COMPONENT
+         ========================================================================= */
+      function App() {
+        const [isStarted, setIsStarted] = useState(false);
+        const [group, setGroup] = useState(GROUPS[0]);
+        const [students, setStudents] = useState({ investigador: '', quimico: '', fisico: '', operador: '' });
+        const [currentMissionIndex, setCurrentMissionIndex] = useState(0);
+        const [completedMissions, setCompletedMissions] = useState([false, false, false, false, false, false]);
+        const [missionScores, setMissionScores] = useState([0, 0, 0, 0, 0, 0]);
+        const [unlockedHints, setUnlockedHints] = useState([
+          [false, false, false],
+          [false, false, false],
+          [false, false, false],
+          [false, false, false],
+          [false, false, false],
+          [false, false, false]
+        ]);
+        const [penalties, setPenalties] = useState([0, 0, 0, 0, 0, 0]);
+        const [score, setScore] = useState(0);
+        const [scoreToast, setScoreToast] = useState(null);
+        const [notes, setNotes] = useState('');
+        const [consensusChecked, setConsensusChecked] = useState(false);
+        const [lockoutSeconds, setLockoutSeconds] = useState(0);
+        const [feedbackMessage, setFeedbackMessage] = useState(null);
+        const [leftTab, setLeftTab] = useState('notes');
+        const [calcDisplay, setCalcDisplay] = useState('0');
+        const [refTab, setRefTab] = useState('table');
+        const [refSearch, setRefSearch] = useState('');
+        const [showCollectiveModal, setShowCollectiveModal] = useState(false);
+        const [showSimulator, setShowSimulator] = useState(false);
+
+        // Mission inputs
+        const [m1Geometry, setM1Geometry] = useState('');
+        const [m1Polarity, setM1Polarity] = useState('');
+        const [m2Force, setM2Force] = useState('');
+        const [m3Answer, setM3Answer] = useState('');
+        const [m4Flow, setM4Flow] = useState('');
+        const [m4Keyword, setM4Keyword] = useState('');
+        const [m5Nox, setM5Nox] = useState('');
+        const [m6Value, setM6Value] = useState('');
+
+        // Collective codes
+        const [collectiveCodes, setCollectiveCodes] = useState({ G1: '', G2: '', G3: '', G4: '', G5: '', G6: '', G7: '', G8: '' });
+        const [collectiveError, setCollectiveError] = useState(null);
+
+        // Simulator state
+        const [simHeight, setSimHeight] = useState(45);
+        const [simVx, setSimVx] = useState(30);
+        const [simGravity, setSimGravity] = useState(10);
+        const [simIsLaunching, setSimIsLaunching] = useState(false);
+        const [simHasLanded, setSimHasLanded] = useState(false);
+        const [simHitTarget, setSimHitTarget] = useState(false);
+        const [simShowCertificate, setSimShowCertificate] = useState(false);
+
+        const currentMission = MISSIONS_DATA[group.id][`m${currentMissionIndex + 1}`];
+        const isCurrentDone = completedMissions[currentMissionIndex];
+
+        // Countdown timer
+        useEffect(() => {
+          if (lockoutSeconds <= 0) return;
+          const timer = setInterval(() => {
+            setLockoutSeconds(prev => prev > 1 ? prev - 1 : 0);
+          }, 1000);
+          return () => clearInterval(timer);
+        }, [lockoutSeconds]);
+
+        // Draw active mission canvas
+        const canvasRef = useRef(null);
+        useEffect(() => {
+          if (!isStarted || showSimulator) return;
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          const w = canvas.width, h = canvas.height;
+          const cx = w / 2, cy = h / 2;
+
+          ctx.clearRect(0, 0, w, h);
+          // Grid
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+          ctx.lineWidth = 1;
+          for (let x = 0; x < w; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+          for (let y = 0; y < h; y += 24) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+          if (currentMissionIndex === 0) {
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+            ctx.beginPath(); ctx.arc(cx, cy, 65, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#0F172A'; ctx.strokeStyle = '#00F0FF'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#FFF'; ctx.font = 'bold 12px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(currentMission.formula, cx, cy);
+            ctx.fillStyle = '#FACC15'; ctx.font = '11px IBM Plex Mono';
+            ctx.fillText(`Átomo Central: ${currentMission.centralAtom}`, cx, cy + 55);
+            ctx.fillText(`Ligantes: ${currentMission.ligands} · Pares Livres: ${currentMission.freePairs}`, cx, cy + 72);
+          } else if (currentMissionIndex === 1) {
+            const m1x = cx - 90, m2x = cx + 90;
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)'; ctx.fillStyle = '#0F172A';
+            ctx.beginPath(); ctx.roundRect(m1x - 40, cy - 25, 80, 50, 8); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.roundRect(m2x - 40, cy - 25, 80, 50, 8); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#FFF'; ctx.font = 'bold 13px Orbitron'; ctx.textAlign = 'center';
+            ctx.fillText(currentMission.formula, m1x, cy); ctx.fillText(currentMission.formula, m2x, cy);
+            ctx.strokeStyle = '#00F0FF'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(m1x + 40, cy); ctx.lineTo(m2x - 40, cy); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#00F0FF'; ctx.font = 'bold 10px IBM Plex Mono';
+            ctx.fillText('⚡ ATRAÇÃO INTERMOLECULAR', cx, cy - 14);
+          } else if (currentMissionIndex === 2) {
+            const cylX = 60, cylY = 25, cylW = 220, cylH = 120;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; ctx.fillRect(cylX, cylY, cylW, cylH);
+            ctx.strokeStyle = '#00F0FF'; ctx.lineWidth = 2; ctx.strokeRect(cylX, cylY, cylW, cylH);
+            const px = cylX + cylW * 0.65;
+            ctx.fillStyle = '#475569'; ctx.fillRect(px, cylY, 14, cylH);
+            ctx.fillStyle = '#00F0FF';
+            for (let i = 0; i < 20; i++) {
+              const rx = cylX + 15 + ((i * 47) % (px - cylX - 25));
+              const ry = cylY + 15 + ((i * 31) % (cylH - 30));
+              ctx.beginPath(); ctx.arc(rx, ry, 3.5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = '#0F172A'; ctx.strokeStyle = 'rgba(0,240,255,0.3)';
+            ctx.roundRect(310, 20, 150, 130, 6); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#00F0FF'; ctx.font = 'bold 10px Orbitron'; ctx.textAlign = 'left';
+            ctx.fillText('TELEMETRIA GASOSA', 320, 40);
+            ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = '#94A3B8'; ctx.fillText('CONDIÇÃO:', 320, 65);
+            ctx.fillStyle = '#FACC15'; ctx.font = 'bold 11px IBM Plex Mono'; ctx.fillText(currentMission.condition, 320, 82);
+            ctx.fillStyle = '#94A3B8'; ctx.font = '10px IBM Plex Mono'; ctx.fillText('VARIÁVEL FIXA:', 320, 105);
+            ctx.fillStyle = '#00FF66'; ctx.font = 'bold 11px IBM Plex Mono'; ctx.fillText(currentMission.variableFixed, 320, 122);
+          } else if (currentMissionIndex === 3) {
+            const b1x = cx - 110, b2x = cx + 110;
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.strokeStyle = '#EF4444';
+            ctx.roundRect(b1x - 45, cy - 35, 90, 70, 8); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#FF3366'; ctx.font = 'bold 12px Orbitron'; ctx.textAlign = 'center';
+            ctx.fillText('CORPO A', b1x, cy - 10);
+            ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = '#F87171'; ctx.fillText('T₁ (MAIOR)', b1x, cy + 12);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.2)'; ctx.strokeStyle = '#38BDF8';
+            ctx.roundRect(b2x - 45, cy - 35, 90, 70, 8); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#38BDF8'; ctx.font = 'bold 12px Orbitron';
+            ctx.fillText('CORPO B', b2x, cy - 10);
+            ctx.font = '10px IBM Plex Mono'; ctx.fillStyle = '#7DD3FC'; ctx.fillText('T₂ (MENOR)', b2x, cy + 12);
+            ctx.strokeStyle = '#FACC15'; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(b1x + 45, cy); ctx.lineTo(b2x - 45, cy); ctx.stroke();
+            ctx.fillStyle = '#FACC15'; ctx.beginPath();
+            ctx.moveTo(b2x - 45, cy); ctx.lineTo(b2x - 55, cy - 5); ctx.lineTo(b2x - 55, cy + 5); ctx.fill();
+            ctx.font = 'bold 10px IBM Plex Mono'; ctx.fillText('FLUXO TÉRMICO (Q)', cx, cy - 12);
+          } else if (currentMissionIndex === 4) {
+            ctx.fillStyle = '#00F0FF'; ctx.font = 'bold 24px Orbitron'; ctx.textAlign = 'center';
+            ctx.fillText(currentMission.compound, cx, cy - 15);
+            ctx.fillStyle = '#FACC15'; ctx.font = '12px IBM Plex Mono';
+            ctx.fillText(`Elemento Alvo: ${currentMission.targetElement} (${currentMission.knownNoxHint})`, cx, cy + 15);
+          } else if (currentMissionIndex === 5) {
+            ctx.fillStyle = '#00F0FF'; ctx.font = 'bold 18px Orbitron'; ctx.textAlign = 'center';
+            ctx.fillText(currentMission.reaction, cx, cy - 15);
+            ctx.fillStyle = '#FACC15'; ctx.font = '12px IBM Plex Mono';
+            ctx.fillText(currentMission.promptText, cx, cy + 15);
+          }
+        }, [isStarted, showSimulator, currentMissionIndex, group.id]);
+
+        // Simulator canvas
+        const simCanvasRef = useRef(null);
+        useEffect(() => {
+          if (!showSimulator) return;
+          const canvas = simCanvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          const w = canvas.width, h = canvas.height;
+
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = '#090916'; ctx.fillRect(0, 0, w, h);
+
+          // Grid
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)'; ctx.lineWidth = 1;
+          for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+          for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+          const groundY = h - 35, cliffX = 70;
+          const scaleX = (w - 140) / 180, scaleY = (groundY - 50) / 125;
+          const cliffTopY = groundY - simHeight * scaleY;
+
+          // Ground
+          ctx.fillStyle = '#111827'; ctx.fillRect(0, groundY, w, h - groundY);
+          ctx.strokeStyle = '#00F0FF'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+
+          // Target Zone
+          const tStart = cliffX + 120 * scaleX;
+          const tEnd = cliffX + 145 * scaleX;
+          ctx.fillStyle = 'rgba(0, 255, 102, 0.2)'; ctx.fillRect(tStart, groundY - 6, tEnd - tStart, 8);
+          ctx.strokeStyle = '#00FF66'; ctx.strokeRect(tStart, groundY - 6, tEnd - tStart, 8);
+          ctx.fillStyle = '#00FF66'; ctx.font = 'bold 11px IBM Plex Mono'; ctx.textAlign = 'center';
+          ctx.fillText('🎯 ZONA DE RESGATE (120m - 145m)', (tStart + tEnd) / 2, groundY - 14);
+
+          // Cliff
+          ctx.fillStyle = '#111827'; ctx.strokeStyle = '#00F0FF';
+          ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(cliffX, groundY); ctx.lineTo(cliffX, cliffTopY); ctx.lineTo(0, cliffTopY); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+
+          // Capsule at start if not launched
+          if (!simIsLaunching && !simHasLanded) {
+            ctx.fillStyle = '#00F0FF'; ctx.beginPath(); ctx.arc(cliffX, cliffTopY - 6, 6, 0, Math.PI * 2); ctx.fill();
+          }
+        }, [showSimulator, simHeight, simVx, simGravity, simIsLaunching, simHasLanded]);
+
+        // Launch animation
+        const handleLaunch = () => {
+          if (simIsLaunching) return;
+          sound.playLaunch();
+          setSimIsLaunching(true);
+          setSimHasLanded(false);
+          setSimHitTarget(false);
+
+          const canvas = simCanvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+          const w = canvas.width, h = canvas.height;
+          const groundY = h - 35, cliffX = 70;
+          const scaleX = (w - 140) / 180, scaleY = (groundY - 50) / 125;
+          const cliffTopY = groundY - simHeight * scaleY;
+
+          const tQueda = Math.sqrt((2 * simHeight) / simGravity);
+          const alcance = simVx * tQueda;
+          const startTime = performance.now();
+          const animDuration = 2200;
+          const trail = [];
+
+          function step(now) {
+            const elapsed = (now - startTime) / animDuration;
+            const t = Math.min(1, elapsed) * tQueda;
+            const curX = cliffX + (simVx * t) * scaleX;
+            const curY = cliffTopY + (0.5 * simGravity * t * t) * scaleY;
+            trail.push({ x: curX, y: curY });
+
+            // Re-render scene
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#090916'; ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)'; ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+            for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+            ctx.fillStyle = '#111827'; ctx.fillRect(0, groundY, w, h - groundY);
+            ctx.strokeStyle = '#00F0FF'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+
+            const tStart = cliffX + 120 * scaleX;
+            const tEnd = cliffX + 145 * scaleX;
+            ctx.fillStyle = 'rgba(0, 255, 102, 0.2)'; ctx.fillRect(tStart, groundY - 6, tEnd - tStart, 8);
+            ctx.strokeStyle = '#00FF66'; ctx.strokeRect(tStart, groundY - 6, tEnd - tStart, 8);
+            ctx.fillStyle = '#00FF66'; ctx.font = 'bold 11px IBM Plex Mono'; ctx.textAlign = 'center';
+            ctx.fillText('🎯 ZONA DE RESGATE (120m - 145m)', (tStart + tEnd) / 2, groundY - 14);
+
+            ctx.fillStyle = '#111827'; ctx.strokeStyle = '#00F0FF';
+            ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(cliffX, groundY); ctx.lineTo(cliffX, cliffTopY); ctx.lineTo(0, cliffTopY); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // Trail
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.8)'; ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            trail.forEach((pt, i) => { if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); });
+            ctx.stroke();
+
+            // Capsule
+            ctx.fillStyle = '#00F0FF'; ctx.beginPath(); ctx.arc(curX, curY, 6, 0, Math.PI * 2); ctx.fill();
+
+            if (elapsed < 1) {
+              requestAnimationFrame(step);
+            } else {
+              setSimIsLaunching(false);
+              setSimHasLanded(true);
+              const isHit = alcance >= 120 && alcance <= 145;
+              setSimHitTarget(isHit);
+              sound.playImpact(isHit);
+            }
+          }
+          requestAnimationFrame(step);
+        };
+
+        // Unlock Hint (Pista 1: -1 pt, Pista 2: -2 pts, Pista 3: -3 pts)
+        const handleUnlockHint = (hIdx) => {
+          if (unlockedHints[currentMissionIndex][hIdx]) return;
+          const cost = hIdx + 1;
+          sound.playHintUnlock();
+          setScoreToast(`-${cost} PT${cost > 1 ? 'S' : ''}`);
+          setTimeout(() => setScoreToast(null), 2500);
+
+          setUnlockedHints(prev => {
+            const next = prev.map((arr, i) => i === currentMissionIndex ? arr.map((u, j) => j === hIdx ? true : u) : [...arr]);
+            return next;
+          });
+          setPenalties(prev => {
+            const next = [...prev];
+            next[currentMissionIndex] += cost;
+            return next;
+          });
+          setScore(prev => prev - cost);
+        };
+
+        // Submit Mission
+        const handleSubmit = () => {
+          if (lockoutSeconds > 0) return;
+          if (!consensusChecked) {
+            sound.playError();
+            setFeedbackMessage({ text: 'A Trava de Consenso é obrigatória!', isError: true });
+            return;
+          }
+
+          let correct = false;
+          if (currentMissionIndex === 0) {
+            correct = m1Geometry === currentMission.correctGeometry && m1Polarity === currentMission.correctPolarity;
+          } else if (currentMissionIndex === 1) {
+            correct = m2Force === currentMission.correctForce;
+          } else if (currentMissionIndex === 2) {
+            correct = m3Answer === currentMission.correctAnswer;
+          } else if (currentMissionIndex === 3) {
+            const norm = m4Keyword.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            correct = m4Flow === currentMission.correctFlow && norm === 'equilibrio termico';
+          } else if (currentMissionIndex === 4) {
+            const clean = m5Nox.trim().replace(/\s+/g, '');
+            const exp = currentMission.correctNox.replace(/\s+/g, '');
+            correct = clean === exp || (exp.startsWith('+') && clean === exp.substring(1));
+          } else if (currentMissionIndex === 5) {
+            const val = parseFloat(m6Value.trim().replace(',', '.'));
+            correct = !isNaN(val) && Math.abs(val - currentMission.correctValue) < 0.05;
+          }
+
+          if (correct) {
+            sound.playSuccess();
+            const net = Math.max(1, 5 - penalties[currentMissionIndex]);
+            const newCompleted = [...completedMissions];
+            newCompleted[currentMissionIndex] = true;
+            setCompletedMissions(newCompleted);
+
+            const newScores = [...missionScores];
+            newScores[currentMissionIndex] = net;
+            setMissionScores(newScores);
+            setScore(newScores.reduce((a, b) => a + b, 0));
+            setFeedbackMessage({ text: `MÓDULO ${currentMissionIndex + 1} DECIFRADO! (+${net} pts)`, isError: false });
+            setConsensusChecked(false);
+
+            if (currentMissionIndex === 4) {
+              setCollectiveCodes(prev => ({ ...prev, [group.id]: NOX_MASTER_CODES[group.id] }));
+            }
+
+            if (currentMissionIndex < 5 && !newCompleted[currentMissionIndex + 1]) {
+              setTimeout(() => {
+                setCurrentMissionIndex(currentMissionIndex + 1);
+                setConsensusChecked(false);
+                setFeedbackMessage(null);
+              }, 1400);
+            } else if (currentMissionIndex === 5 || newCompleted.filter(Boolean).length === 6) {
+              setTimeout(() => setShowCollectiveModal(true), 1600);
+            }
+          } else {
+            sound.playError();
+            setLockoutSeconds(20);
+            setFeedbackMessage({ text: 'ANÁLISE INCORRETA! Protocolo Anti-Chute: travado por 20s.', isError: true });
+          }
+        };
+
+        if (!isStarted) {
+          return (
+            <div className="relative w-screen h-screen bg-[#090D16] sci-fi-grid flex flex-col justify-between p-4 overflow-hidden select-none">
+              <div className="scanline"></div>
+              <div className="flex items-center justify-between border-b border-cyan-500/30 pb-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-cyan-950/80 border border-cyan-400 text-cyan-300">⚛️</div>
+                  <div>
+                    <h1 className="font-orbitron font-extrabold text-xl tracking-wider text-white flex items-center gap-2">
+                      ESCAPE ROOM: TREINAMENTO CIENTÍFICO
+                      <span className="text-xs px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 font-mono">1ª SÉRIE EM</span>
+                    </h1>
+                    <p className="text-xs text-slate-400 font-mono">Química & Física · Protocolo Orbital</p>
+                  </div>
+                </div>
+                <div className="text-xs font-mono text-cyan-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-cyan-500/30">
+                  ESTAÇÃO ORION-8
+                </div>
+              </div>
+
+              <div className="flex-1 grid grid-cols-12 gap-4 py-3 min-h-0">
+                <div className="col-span-5 flex flex-col gap-3 min-h-0">
+                  <div className="bg-slate-950/80 border border-amber-500/40 rounded-xl p-3 shadow-lg">
+                    <span className="text-amber-400 font-orbitron font-bold text-xs block mb-1">⚠️ TRANSMISSÃO DA CENTRAL:</span>
+                    <p className="text-xs text-slate-300 font-mono leading-relaxed">
+                      "Atenção bancadas! Houve uma pane na Cápsula Orion-8. Todos os 6 módulos foram travados. Para resgatá-la, decifre os desafios de Química e Física e obtenha seu Código Mestre de Oxidação!"
+                    </p>
+                  </div>
+
+                  <div className="flex-1 bg-slate-900/60 border border-slate-700/60 rounded-xl p-3 flex flex-col min-h-0">
+                    <span className="font-orbitron text-xs font-bold text-cyan-300 mb-2">SELECIONE A SUA BANCADA:</span>
+                    <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                      {GROUPS.map(g => (
+                        <button key={g.id} onClick={() => { sound.playClick(); setGroup(g); }} className={`p-2 rounded-lg border text-left flex items-center justify-between cursor-pointer ${group.id === g.id ? 'bg-cyan-950/70 border-cyan-400 ring-1 ring-cyan-400' : 'bg-slate-950/70 border-slate-800 text-slate-300'}`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded flex items-center justify-center font-orbitron font-bold text-xs border border-cyan-500/40 text-cyan-300 bg-cyan-950/40">{g.symbol}</div>
+                            <div>
+                              <div className="text-xs font-bold text-white">{g.id}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{g.element}</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-7 bg-slate-900/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between min-h-0">
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                      <span className="text-cyan-300 font-orbitron font-bold text-sm">ESCALAÇÃO DOS 4 CIENTISTAS:</span>
+                      <span className="text-[11px] font-mono text-slate-400">Trabalho Cooperativo</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                        <span className="text-xs font-mono text-cyan-400 font-semibold block mb-1">1. INVESTIGADOR(A)</span>
+                        <input type="text" placeholder="Nome..." value={students.investigador} onChange={e => setStudents(s => ({ ...s, investigador: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none" />
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                        <span className="text-xs font-mono text-emerald-400 font-semibold block mb-1">2. CIENTISTA DA QUÍMICA</span>
+                        <input type="text" placeholder="Nome..." value={students.quimico} onChange={e => setStudents(s => ({ ...s, quimico: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none" />
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                        <span className="text-xs font-mono text-amber-400 font-semibold block mb-1">3. CIENTISTA DA FÍSICA</span>
+                        <input type="text" placeholder="Nome..." value={students.fisico} onChange={e => setStudents(s => ({ ...s, fisico: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none" />
+                      </div>
+                      <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800">
+                        <span className="text-xs font-mono text-rose-400 font-semibold block mb-1">4. OPERADOR(A) DA CENTRAL</span>
+                        <input type="text" placeholder="Nome..." value={students.operador} onChange={e => setStudents(s => ({ ...s, operador: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button onClick={() => { sound.playSuccess(); setIsStarted(true); }} className="w-full py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-emerald-500 hover:brightness-110 text-white font-orbitron font-bold text-sm tracking-widest rounded-xl shadow-lg shadow-cyan-950 cursor-pointer">
+                    INICIAR TREINAMENTO CIENTÍFICO →
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Simulator screen
+        if (showSimulator) {
+          const tQueda = Math.sqrt((2 * simHeight) / simGravity);
+          const alcance = simVx * tQueda;
+          const vImpacto = Math.sqrt(simVx * simVx + (simGravity * tQueda) * (simGravity * tQueda));
+
+          return (
+            <div className="fixed inset-0 z-50 bg-[#090916] backdrop-blur-xl flex flex-col p-4 overflow-hidden select-none">
+              <div className="flex items-center justify-between pb-3 border-b border-cyan-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-cyan-950/60 border border-cyan-400 text-cyan-300">🚀</div>
+                  <div>
+                    <h1 className="font-orbitron font-bold text-lg text-white tracking-wider">
+                      SIMULADOR DE LANÇAMENTO HORIZONTAL <span className="text-xs px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-mono">FASE FINAL</span>
+                    </h1>
+                    <p className="text-xs text-slate-400 font-mono">Bancada: <span className="text-cyan-300">{group.name}</span></p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {simHasLanded && simHitTarget && (
+                    <button onClick={() => setSimShowCertificate(true)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-orbitron font-bold rounded shadow-lg">
+                      VER CERTIFICADO
+                    </button>
+                  )}
+                  <button onClick={() => setShowSimulator(false)} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-xs font-mono rounded border border-slate-700">
+                    VOLTAR AO DASHBOARD
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col gap-3 py-2 min-h-0">
+                <div className="flex-1 min-h-0 relative bg-[#090916] rounded-xl border border-cyan-500/40 overflow-hidden shadow-2xl flex items-center justify-center">
+                  <canvas ref={simCanvasRef} width={980} height={360} className="w-full h-full object-contain"></canvas>
+                  <div className="absolute top-3 left-3 bg-[#090916]/90 border border-cyan-500/40 p-3 rounded-lg text-xs font-mono backdrop-blur-md flex flex-col gap-1.5 pointer-events-none shadow-lg">
+                    <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider">CÁLCULOS AUTOMÁTICOS</span>
+                    <div className="text-slate-300">Tempo de Queda: <span className="text-cyan-300 font-bold font-mono">{tQueda.toFixed(2)} s</span></div>
+                    <div className="text-slate-300">Alcance Horizontal: <span className="text-[#00FF66] font-bold font-mono">{alcance.toFixed(1)} m</span></div>
+                    <div className="text-slate-300">Velocidade Impacto: <span className="text-amber-300 font-bold font-mono">{vImpacto.toFixed(1)} m/s</span></div>
+                  </div>
+
+                  {simHasLanded && (
+                    <div className={`absolute top-3 right-3 px-3 py-2 rounded-lg font-orbitron text-xs font-bold border backdrop-blur-md ${simHitTarget ? 'bg-emerald-950/90 border-[#00FF66] text-[#00FF66]' : 'bg-rose-950/90 border-[#FF3366] text-[#FF3366]'}`}>
+                      {simHitTarget ? `🎯 ALVO ATINGIDO COM SUCESSO! (${alcance.toFixed(1)} m)` : `⚠️ FORA DO ALVO (${alcance.toFixed(1)} m)! AJUSTE h OU Vx.`}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-900/80 border border-slate-700/70 rounded-xl p-3.5 flex items-center justify-between gap-6">
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-slate-300">ALTURA DA PLATAFORMA (h):</span>
+                      <span className="font-bold text-[#00F0FF]">{simHeight} metros</span>
+                    </div>
+                    <input type="range" min="20" max="120" step="5" value={simHeight} disabled={simIsLaunching} onChange={e => setSimHeight(Number(e.target.value))} className="accent-[#00F0FF] cursor-pointer h-2 bg-slate-800 rounded-lg" />
+                  </div>
+
+                  <div className="flex-1 flex flex-col gap-1">
+                    <div className="flex justify-between text-xs font-mono">
+                      <span className="text-slate-300">VELOCIDADE HORIZONTAL (Vx):</span>
+                      <span className="font-bold text-[#00FF66]">{simVx} m/s</span>
+                    </div>
+                    <input type="range" min="10" max="70" step="2" value={simVx} disabled={simIsLaunching} onChange={e => setSimVx(Number(e.target.value))} className="accent-[#00FF66] cursor-pointer h-2 bg-slate-800 rounded-lg" />
+                  </div>
+
+                  <div className="flex flex-col gap-1 w-36">
+                    <span className="text-[11px] font-mono text-slate-400">GRAVIDADE (g):</span>
+                    <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded border border-slate-800">
+                      <button onClick={() => setSimGravity(10)} className={`py-1 text-xs font-mono font-bold rounded ${simGravity === 10 ? 'bg-cyan-600 text-white' : 'text-slate-400'}`}>10 m/s²</button>
+                      <button onClick={() => setSimGravity(9.8)} className={`py-1 text-xs font-mono font-bold rounded ${simGravity === 9.8 ? 'bg-cyan-600 text-white' : 'text-slate-400'}`}>9.8 m/s²</button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleLaunch} disabled={simIsLaunching} className="px-6 py-3 bg-[#00F0FF] hover:bg-cyan-300 text-slate-950 font-orbitron font-extrabold text-xs tracking-wider rounded-lg shadow-[0_0_20px_rgba(0,240,255,0.4)] cursor-pointer">
+                      ▶ DISPARAR
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {simShowCertificate && (
+                <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="max-w-xl w-full bg-slate-950 border-2 border-cyan-400 rounded-2xl p-6 shadow-2xl text-center">
+                    <div className="text-4xl mb-2">🏆</div>
+                    <h2 className="font-orbitron font-extrabold text-2xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-amber-300 to-emerald-400 tracking-wider">CERTIFICADO DE RECUPERAÇÃO ORBITAL</h2>
+                    <p className="text-xs font-mono text-cyan-300 mt-1">MISSÃO CONCLUÍDA COM SUCESSO</p>
+                    <div className="my-4 p-4 rounded-xl bg-slate-900 border border-slate-800 text-left font-mono text-xs flex flex-col gap-2">
+                      <div className="text-slate-300">Equipe: <span className="font-bold text-white">{group.name}</span> · Alcance: <span className="text-emerald-400 font-bold">{alcance.toFixed(1)} m</span></div>
+                      <div className="border-t border-slate-800 pt-2 grid grid-cols-2 gap-2 text-slate-400">
+                        <div>Investigador(a): <span className="text-cyan-300 font-bold">{students.investigador || 'Investigador'}</span></div>
+                        <div>Químico(a): <span className="text-cyan-300 font-bold">{students.quimico || 'Químico(a)'}</span></div>
+                        <div>Físico(a): <span className="text-cyan-300 font-bold">{students.fisico || 'Físico(a)'}</span></div>
+                        <div>Operador(a): <span className="text-cyan-300 font-bold">{students.operador || 'Operador(a)'}</span></div>
+                      </div>
+                    </div>
+                    <button onClick={() => setSimShowCertificate(false)} className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-orbitron font-bold text-xs rounded-lg cursor-pointer">CONTINUAR</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // Main Dashboard View
+        return (
+          <div className="relative w-screen h-screen bg-[#090D16] sci-fi-grid flex flex-col overflow-hidden select-none text-slate-100">
+            <div className="scanline"></div>
+
+            <header className="h-12 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-20">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded flex items-center justify-center font-orbitron font-bold text-xs border border-cyan-400 bg-cyan-950/30 text-cyan-300">
+                  {group.symbol}
+                </div>
+                <span className="font-orbitron font-bold text-xs text-white tracking-wider">
+                  {group.name.toUpperCase()} <span className="text-[10px] text-cyan-400 font-mono font-normal">· BANCADA CIENTÍFICA</span>
+                </span>
+              </div>
+
+              <div className="hidden md:flex items-center gap-1.5">
+                {[0, 1, 2, 3, 4, 5].map(idx => (
+                  <button key={idx} onClick={() => { sound.playClick(); setCurrentMissionIndex(idx); setConsensusChecked(false); setFeedbackMessage(null); }} className={`px-2.5 py-1 rounded text-xs font-mono font-semibold transition-all flex items-center gap-1 cursor-pointer ${currentMissionIndex === idx ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400 shadow-[0_0_8px_rgba(0,240,255,0.2)]' : completedMissions[idx] ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-600/50' : 'bg-slate-900/80 text-slate-400 border border-slate-800 hover:text-slate-200'}`}>
+                    {completedMissions[idx] ? '✓' : `M${idx + 1}`}
+                    <span className="text-[10px]">{['Molécula', 'Forças', 'Gases', 'Termo', 'NOX', 'Esteq'][idx]}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="relative bg-slate-900 border border-cyan-500/40 px-3 py-1 rounded-lg flex items-center gap-1.5 font-mono text-xs">
+                  <span className="text-slate-400 text-[10px] uppercase">Pontos:</span>
+                  <span className="font-orbitron font-bold text-amber-300 text-sm">{score}</span>
+                  {scoreToast && (
+                    <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 font-orbitron font-extrabold text-[11px] text-[#FF3366] bg-rose-950 border border-[#FF3366] px-1.5 py-0.5 rounded shadow-[0_0_8px_rgba(255,51,102,0.6)] animate-pulse whitespace-nowrap z-30">
+                      {scoreToast}
+                    </span>
+                  )}
+                </div>
+
+                <button onClick={() => { sound.playClick(); setShowSimulator(true); }} className="px-2.5 py-1 bg-cyan-950/60 border border-[#00F0FF] hover:bg-cyan-900/60 text-[#00F0FF] font-orbitron font-bold text-xs rounded flex items-center gap-1.5 transition-colors cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.15)]">
+                  🚀 <span className="hidden lg:inline">SIMULADOR FÍSICO</span>
+                </button>
+
+                {(completedMissions.every(Boolean) || completedMissions[4]) && (
+                  <button onClick={() => { sound.playClick(); setCollectiveCodes(c => ({ ...c, [group.id]: NOX_MASTER_CODES[group.id] })); setShowCollectiveModal(true); }} className="px-2.5 py-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 text-white font-orbitron font-bold text-xs rounded border border-cyan-400 flex items-center gap-1.5 animate-pulse cursor-pointer">
+                    🔑 DESBLOQUEIO COLETIVO
+                  </button>
+                )}
+
+                <button onClick={() => { sound.enabled = !sound.enabled; sound.playClick(); }} className="p-1.5 rounded bg-slate-900 border border-slate-700 text-slate-400 hover:text-cyan-300">
+                  {sound.enabled ? '🔊' : '🔇'}
+                </button>
+
+                <button onClick={() => {
+                  sound.playClick();
+                  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+                  else document.exitFullscreen().catch(() => {});
+                }} className="px-2.5 py-1 rounded bg-cyan-950/60 border border-cyan-400/80 text-cyan-300 font-mono text-xs flex items-center gap-1.5 cursor-pointer">
+                  ⛶ TELA CHEIA (F11)
+                </button>
+              </div>
+            </header>
+
+            <main className="flex-1 grid grid-cols-12 gap-3 p-3 min-h-0 overflow-hidden">
+              {/* Left Column (25%) */}
+              <aside className="col-span-3 flex flex-col gap-2.5 min-h-0">
+                <div className="bg-slate-900/60 border border-slate-700/60 rounded-lg p-2.5 backdrop-blur-md shrink-0">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                    <span className="font-orbitron text-xs font-bold text-cyan-300">INTEGRANTES DA BANCADA</span>
+                    <span className="text-[10px] font-mono text-emerald-400">CONECTADOS</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5 text-xs font-mono">
+                    <div className="flex justify-between bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                      <span className="text-cyan-400 text-[10px]">INVESTIGADOR:</span>
+                      <span className="text-slate-200 font-semibold truncate max-w-[130px]">{students.investigador || 'Investigador'}</span>
+                    </div>
+                    <div className="flex justify-between bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                      <span className="text-emerald-400 text-[10px]">CIENTISTA QUÍMICA:</span>
+                      <span className="text-slate-200 font-semibold truncate max-w-[130px]">{students.quimico || 'Químico(a)'}</span>
+                    </div>
+                    <div className="flex justify-between bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                      <span className="text-amber-400 text-[10px]">CIENTISTA FÍSICA:</span>
+                      <span className="text-slate-200 font-semibold truncate max-w-[130px]">{students.fisico || 'Físico(a)'}</span>
+                    </div>
+                    <div className="flex justify-between bg-slate-950/70 p-1.5 rounded border border-slate-800/80">
+                      <span className="text-rose-400 text-[10px]">OPERADOR CENTRAL:</span>
+                      <span className="text-slate-200 font-semibold truncate max-w-[130px]">{students.operador || 'Operador(a)'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-700/60 rounded-lg p-2.5 backdrop-blur-md shrink-0">
+                  <div className="flex justify-between mb-1.5">
+                    <span className="font-orbitron text-xs font-bold text-amber-300">🔑 COFRE DE CÓDIGOS</span>
+                    <span className="text-[10px] font-mono text-slate-400">{completedMissions.filter(Boolean).length}/6 Módulos</span>
+                  </div>
+                  <div className="bg-slate-950/80 p-2 rounded border border-slate-800 font-mono text-xs flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block">CÓDIGO MESTRE (M5 NOX):</span>
+                      <span className="font-orbitron font-bold text-sm text-cyan-300">
+                        {completedMissions[4] ? NOX_MASTER_CODES[group.id] : '🔒 BLOQUEADO'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-500 block">STATUS ORBITAL:</span>
+                      <span className={`text-[11px] font-bold ${completedMissions.every(Boolean) ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {completedMissions.every(Boolean) ? 'PRONTO P/ RESGATE' : 'EM ANÁLISE'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scratchpad & Calculator */}
+                <div className="flex-1 flex flex-col min-h-0 bg-slate-900/60 border border-slate-700/60 rounded-lg p-2.5 backdrop-blur-md">
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5 mb-2">
+                    <div className="flex gap-1">
+                      <button onClick={() => { sound.playClick(); setLeftTab('notes'); }} className={`px-2 py-0.5 text-xs font-mono rounded ${leftTab === 'notes' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50' : 'text-slate-400'}`}>Rascunho</button>
+                      <button onClick={() => { sound.playClick(); setLeftTab('calc'); }} className={`px-2 py-0.5 text-xs font-mono rounded ${leftTab === 'calc' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50' : 'text-slate-400'}`}>Calculadora</button>
+                    </div>
+                    <span className="text-[9px] text-slate-500 font-mono">Investigador</span>
+                  </div>
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    {leftTab === 'notes' ? (
+                      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Anotações da equipe: cálculos de NOX, estequiometria, hipóteses..." className="flex-1 w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 resize-none custom-scrollbar"></textarea>
+                    ) : (
+                      <div className="bg-slate-950/80 border border-slate-700/60 rounded-lg p-2 flex flex-col gap-1.5 shadow-inner">
+                        <div className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right font-mono text-sm tracking-wider text-cyan-300 truncate">{calcDisplay}</div>
+                        <div className="grid grid-cols-4 gap-1">
+                          <button onClick={() => { sound.playClick(); setCalcDisplay('0'); }} className="py-1 text-xs rounded border border-rose-800/40 bg-rose-950/40 text-rose-300">C</button>
+                          <button onClick={() => { sound.playClick(); setCalcDisplay(d => d.length <= 1 ? '0' : d.slice(0, -1)); }} className="py-1 text-xs rounded border border-slate-700 bg-slate-800 text-slate-300">⌫</button>
+                          <button onClick={() => {
+                            sound.playClick();
+                            try {
+                              const num = parseFloat(calcDisplay);
+                              setCalcDisplay(num >= 0 ? Math.sqrt(num).toFixed(2).toString() : 'Erro');
+                            } catch(e){ setCalcDisplay('Erro'); }
+                          }} className="py-1 text-xs rounded border border-slate-700 bg-slate-800 text-cyan-300 font-mono">√</button>
+                          <button onClick={() => { sound.playClick(); setCalcDisplay(d => d + '/'); }} className="py-1 text-xs rounded border border-cyan-800/40 bg-cyan-950/40 text-cyan-300 font-mono">/</button>
+                          {['7','8','9','*','4','5','6','-','1','2','3','+'].map(ch => (
+                            <button key={ch} onClick={() => {
+                              sound.playClick();
+                              setCalcDisplay(d => (d === '0' && ch !== '.') ? ch : d + ch);
+                            }} className={`py-1 text-xs rounded ${['*','-','+'].includes(ch) ? 'border border-cyan-800/40 bg-cyan-950/40 text-cyan-300 font-mono' : 'bg-slate-900 text-slate-200'}`}>
+                              {ch === '*' ? '×' : ch}
+                            </button>
+                          ))}
+                          <button onClick={() => { sound.playClick(); setCalcDisplay(d => d === '0' ? '0' : d + '0'); }} className="py-1 text-xs rounded bg-slate-900 text-slate-200 col-span-2">0</button>
+                          <button onClick={() => { sound.playClick(); setCalcDisplay(d => d + '.'); }} className="py-1 text-xs rounded bg-slate-900 text-slate-200">.</button>
+                          <button onClick={() => {
+                            sound.playClick();
+                            try {
+                              const san = calcDisplay.replace(/[^0-9+\-*/.()]/g, '');
+                              const res = new Function(`return (${san})`)();
+                              setCalcDisplay(Number(res.toFixed(4)).toString());
+                            } catch(e) { setCalcDisplay('Erro'); }
+                          }} className="py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold">=</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </aside>
+
+              {/* Center Column (50%) */}
+              <section className="col-span-6 flex flex-col gap-2.5 min-h-0 bg-slate-900/60 border border-slate-700/60 rounded-xl p-3.5 backdrop-blur-md">
+                <div className="flex justify-between border-b border-slate-800 pb-2">
+                  <div>
+                    <span className="font-orbitron font-extrabold text-sm text-cyan-300">MISSÃO {currentMissionIndex + 1}: </span>
+                    <span className="font-orbitron font-bold text-sm text-white">
+                      {['MOLÉCULA MISTERIOSA', 'QUEM INTERAGE COM QUEM?', 'PRESSÃO MÁXIMA', 'CONTROLE TÉRMICO', 'CÓDIGO DE OXIDAÇÃO (NOX)', 'QUANTIDADE EXATA'][currentMissionIndex]}
+                    </span>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{currentMission.description || currentMission.promptText || currentMission.scenarioTitle}</p>
+                  </div>
+                  {isCurrentDone && <span className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500 text-emerald-300 text-xs font-mono font-bold">✓ CONCLUÍDO</span>}
+                </div>
+
+                <div className="shrink-0 relative w-full h-44 rounded-lg bg-slate-950/80 border border-cyan-500/30 overflow-hidden flex items-center justify-center">
+                  <canvas ref={canvasRef} width={480} height={175} className="w-full h-full object-contain"></canvas>
+                </div>
+
+                <div className="flex-1 flex flex-col justify-between min-h-0 bg-slate-950/70 border border-slate-800 rounded-lg p-3">
+                  <div className="overflow-y-auto custom-scrollbar pr-1">
+                    {currentMissionIndex === 0 && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-mono text-slate-300 block mb-1">1. Geometria Molecular:</label>
+                          <div className="grid grid-cols-1 gap-1">
+                            {['Linear', 'Angular', 'Trigonal plana', 'Piramidal', 'Tetraédrica'].map(g => (
+                              <button key={g} onClick={() => setM1Geometry(g)} className={`text-left px-2.5 py-1 text-xs font-mono rounded border transition-colors ${m1Geometry === g ? 'bg-cyan-950 text-cyan-300 border-cyan-400' : 'bg-slate-900 text-slate-300 border-slate-800'}`}>{g}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-mono text-slate-300 block mb-1">2. Polaridade:</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {['Polar', 'Apolar'].map(p => (
+                              <button key={p} onClick={() => setM1Polarity(p)} className={`py-2 text-xs font-mono font-bold rounded border text-center transition-colors ${m1Polarity === p ? 'bg-cyan-950 text-cyan-300 border-cyan-400' : 'bg-slate-900 text-slate-300 border-slate-800'}`}>{p}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {currentMissionIndex === 1 && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs font-mono text-slate-300">Selecione a Força Intermolecular predominante entre moléculas de {currentMission.formula}:</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['Forças de London', 'Dipolo-dipolo', 'Ligação de hidrogênio'].map(f => (
+                            <button key={f} onClick={() => setM2Force(f)} className={`p-2.5 text-xs font-mono font-semibold rounded-lg border text-center transition-colors ${m2Force === f ? 'bg-cyan-950 text-cyan-300 border-cyan-400' : 'bg-slate-900 text-slate-300 border-slate-800'}`}>{f}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {currentMissionIndex === 2 && (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-xs font-mono text-slate-300">
+                          Condição: <span className="text-cyan-300 font-bold">{currentMission.variableFixed}</span>.
+                          Quando a grandeza <span className="text-amber-300 font-bold">{currentMission.variableChanged}</span> {currentMission.changeDirection}, o que ocorre com a <span className="text-cyan-300 font-bold">{currentMission.variableTarget}</span>?
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 mt-1">
+                          {['Aumenta', 'Diminui'].map(ans => (
+                            <button key={ans} onClick={() => setM3Answer(ans)} className={`py-3 text-sm font-mono font-bold rounded-lg border text-center transition-colors ${m3Answer === ans ? 'bg-cyan-950 text-cyan-300 border-cyan-400' : 'bg-slate-900 text-slate-300 border-slate-800'}`}>
+                              {ans === 'Aumenta' ? '↑ AUMENTA' : '↓ DIMINUI'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {currentMissionIndex === 3 && (
+                      <div className="flex flex-col gap-2.5">
+                        <div>
+                          <label className="text-xs font-mono text-slate-300 block mb-1">1. Fluxo espontâneo de calor:</label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {currentMission.flowOptions.map(opt => (
+                              <button key={opt} onClick={() => setM4Flow(opt)} className={`text-left p-1.5 text-xs font-mono rounded border transition-colors ${m4Flow === opt ? 'bg-cyan-950 text-cyan-300 border-cyan-400' : 'bg-slate-900 text-slate-300 border-slate-800'}`}>{opt}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs font-mono text-slate-300 block mb-1">2. Palavra-Chave de Encerramento (Estado final após troca de calor):</label>
+                          <input type="text" placeholder="Digite a palavra-chave..." value={m4Keyword} onChange={e => setM4Keyword(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-400" />
+                        </div>
+                      </div>
+                    )}
+
+                    {currentMissionIndex === 4 && (
+                      <div className="flex flex-col items-center gap-2 py-1">
+                        <label className="text-xs font-mono text-slate-300 text-center">Digite o NOX exato do elemento <strong>{currentMission.targetElement}</strong> na substância <strong>{currentMission.compound}</strong> (ex: +7):</label>
+                        <input type="text" placeholder="+7" value={m5Nox} onChange={e => setM5Nox(e.target.value)} className="w-36 text-center text-lg font-orbitron font-bold py-1.5 bg-slate-900 border border-cyan-500 rounded text-cyan-300 focus:outline-none" />
+                        <span className="text-[10px] text-slate-400 font-mono">Este valor será o CÓDIGO MESTRE da sua bancada para a lousa da sala!</span>
+                      </div>
+                    )}
+
+                    {currentMissionIndex === 5 && (
+                      <div className="flex flex-col items-center gap-2 py-1">
+                        <label className="text-xs font-mono text-slate-300 text-center">Digite o valor numérico exato da resposta ({currentMission.unit}):</label>
+                        <input type="text" placeholder="ex: 4 ou 36" value={m6Value} onChange={e => setM6Value(e.target.value)} className="w-36 text-center text-lg font-orbitron font-bold py-1.5 bg-slate-900 border border-cyan-500 rounded text-cyan-300 focus:outline-none" />
+                        <span className="text-[10px] text-slate-400 font-mono">Use a calculadora rápida na coluna esquerda se precisar!</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-slate-800 flex flex-col gap-2">
+                    {feedbackMessage && (
+                      <div className={`p-2 rounded text-xs font-mono flex items-center gap-2 ${feedbackMessage.isError ? 'bg-rose-950/80 border border-rose-600/70 text-rose-300' : 'bg-emerald-950/80 border border-emerald-600/70 text-emerald-300'}`}>
+                        <span>{feedbackMessage.text}</span>
+                      </div>
+                    )}
+
+                    {lockoutSeconds > 0 && (
+                      <div className="bg-rose-950/90 border border-rose-500 rounded p-2 flex justify-between text-xs font-mono text-rose-300 animate-pulse">
+                        <span>⏰ SISTEMA ANTI-CHUTE BLOQUEADO:</span>
+                        <span className="font-orbitron font-bold text-sm text-white">{lockoutSeconds}s</span>
+                      </div>
+                    )}
+
+                    <label className="flex items-center gap-2 text-xs font-mono text-slate-300 cursor-pointer select-none">
+                      <input type="checkbox" checked={consensusChecked} disabled={lockoutSeconds > 0 || isCurrentDone} onChange={e => setConsensusChecked(e.target.checked)} className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-cyan-500 cursor-pointer accent-cyan-400" />
+                      <span className="font-semibold text-slate-200">Confirmamos que os 4 integrantes debateram e chegaram a um consenso.</span>
+                    </label>
+
+                    <button onClick={handleSubmit} disabled={!consensusChecked || lockoutSeconds > 0 || isCurrentDone} className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 disabled:opacity-40 text-white font-orbitron font-bold text-xs tracking-wider rounded-lg shadow-md shadow-cyan-950 cursor-pointer">
+                      {isCurrentDone ? 'MÓDULO JÁ CONCLUÍDO' : 'ENVIAR RESPOSTA (ENTER)'} →
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Right Column (25%) */}
+              <aside className="col-span-3 flex flex-col gap-2.5 min-h-0">
+                <div className="bg-slate-900/60 border border-slate-700/60 rounded-lg p-2.5 backdrop-blur-md shrink-0">
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5 mb-2">
+                    <span className="font-orbitron text-xs font-bold text-cyan-300">CENTRAL DE PISTAS GRADUAIS</span>
+                    <span className="text-[10px] font-mono text-slate-400">M{currentMissionIndex + 1}</span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {[0, 1, 2].map(hIdx => {
+                      const isUnlocked = unlockedHints[currentMissionIndex][hIdx];
+                      const cost = hIdx + 1;
+                      const hTitle = `Pista ${hIdx + 1}: -${cost} pt${cost > 1 ? 's' : ''}`;
+                      const hText = currentMission.hints[hIdx];
+
+                      return (
+                        <div key={hIdx} onClick={() => handleUnlockHint(hIdx)} className={`rounded-lg border p-2.5 text-xs font-mono transition-all select-none ${isUnlocked ? 'bg-slate-950/90 border-[#00FF66]/60 shadow-[0_0_12px_rgba(0,255,102,0.15)] text-slate-100' : 'bg-slate-950/80 border-[#FF3366]/40 hover:border-[#FF3366] text-slate-400 cursor-pointer active:scale-[0.99]'}`}>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className={`font-orbitron font-bold text-xs ${isUnlocked ? 'text-[#00FF66]' : 'text-slate-200'}`}>{isUnlocked ? '🔓 ' : '🔒 '}{hTitle}</span>
+                            <span className={`text-[10px] font-bold ${isUnlocked ? 'text-[#00FF66] bg-emerald-950/80 border border-[#00FF66]/50' : 'text-[#FF3366] bg-rose-950/80 border border-[#FF3366]/50 animate-pulse'} px-2 py-0.5 rounded`}>
+                              {isUnlocked ? 'REVELADA' : 'CLIQUE P/ REVELAR'}
+                            </span>
+                          </div>
+                          {isUnlocked ? (
+                            <div className="text-[11px] text-[#00F0FF] leading-relaxed bg-slate-900/90 p-2 rounded border border-cyan-500/30 mt-1 shadow-inner">
+                              "{hText}"
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-500 italic mt-0.5 flex justify-between">
+                              <span>Pista da bancada {group.id}</span>
+                              <span className="text-[#FF3366] font-semibold">Subtrai {cost} pt</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col min-h-0 bg-slate-900/60 border border-slate-700/60 rounded-lg overflow-hidden backdrop-blur-md">
+                  <div className="grid grid-cols-3 border-b border-slate-800 bg-slate-950/60 text-xs font-mono">
+                    <button onClick={() => { sound.playClick(); setRefTab('table'); }} className={`py-2 px-1 text-center ${refTab === 'table' ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20' : 'text-slate-400'}`}>Tabela</button>
+                    <button onClick={() => { sound.playClick(); setRefTab('formulas'); }} className={`py-2 px-1 text-center ${refTab === 'formulas' ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20' : 'text-slate-400'}`}>Fórmulas</button>
+                    <button onClick={() => { sound.playClick(); setRefTab('nox'); }} className={`py-2 px-1 text-center ${refTab === 'nox' ? 'border-b-2 border-cyan-400 text-cyan-300 bg-cyan-950/20' : 'text-slate-400'}`}>NOX</button>
+                  </div>
+                  <div className="flex-1 p-2 overflow-y-auto custom-scrollbar">
+                    {refTab === 'table' && (
+                      <div className="flex flex-col gap-2">
+                        <input type="text" placeholder="Buscar (ex: O, H, 16)..." value={refSearch} onChange={e => setRefSearch(e.target.value)} className="w-full px-2 py-1 text-xs bg-slate-950 border border-slate-700 rounded text-slate-200 font-mono focus:outline-none" />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {PERIODIC_ELEMENTS.filter(e => e.name.toLowerCase().includes(refSearch.toLowerCase()) || e.symbol.toLowerCase().includes(refSearch.toLowerCase()) || e.z.toString() === refSearch.trim()).map(el => (
+                            <div key={el.z} className="bg-slate-950/80 border border-slate-800 p-1.5 rounded flex justify-between items-center">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-6 h-6 rounded bg-slate-900 border border-slate-700 flex items-center justify-center font-bold text-xs text-cyan-300">{el.symbol}</div>
+                                <div><div className="text-[11px] font-bold text-slate-200 truncate max-w-[65px]">{el.name}</div><div className="text-[9px] text-slate-500">{el.group}</div></div>
+                              </div>
+                              <span className="text-xs text-amber-300 font-mono font-bold">{el.mass}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {refTab === 'formulas' && (
+                      <div className="flex flex-col gap-2">
+                        {FORMULAS_DATA.map(cat => (
+                          <div key={cat.cat} className="bg-slate-950/70 border border-slate-800 rounded p-2">
+                            <span className="text-[11px] font-orbitron font-bold text-cyan-400 block mb-1">{cat.cat}</span>
+                            {cat.items.map(it => (
+                              <div key={it.name} className="mb-1 text-xs"><span className="text-slate-400 text-[10px]">{it.name}: </span><div className="font-mono text-emerald-300 bg-slate-900 px-1 py-0.5 rounded mt-0.5">{it.form}</div></div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {refTab === 'nox' && (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="text-[10px] text-cyan-300 bg-cyan-950/30 border border-cyan-800/40 p-2 rounded font-mono">💡 A soma dos NOX em espécie neutra é sempre ZERO!</div>
+                        {NOX_RULES.map(r => (
+                          <div key={r.rule} className="bg-slate-950/70 border border-slate-800 p-1.5 rounded flex justify-between"><span className="text-xs text-slate-200">${r.rule}</span><span className="text-xs font-mono text-cyan-300 bg-slate-900 px-1.5 rounded">{r.val}</span></div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </aside>
+            </main>
+
+            {/* Collective Unlock Modal */}
+            {showCollectiveModal && (
+              <div className="fixed inset-0 z-50 bg-[#090D16]/95 backdrop-blur-xl flex items-center justify-center p-4 select-none">
+                <div className="max-w-2xl w-full bg-slate-950 border-2 border-cyan-500/60 rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+                  <div className="flex justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <h2 className="font-orbitron font-extrabold text-lg text-white">DESBLOQUEIO COLETIVO ORBITAL</h2>
+                      <p className="text-xs text-slate-400 font-mono">Sincronização dos Códigos Mestres de Oxidação (NOX)</p>
+                    </div>
+                    <button onClick={() => setShowCollectiveModal(false)} className="text-xs text-slate-400 hover:text-white font-mono px-2.5 py-1 rounded bg-slate-900 border border-slate-700">Fechar</button>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-cyan-950/50 via-slate-900/60 to-cyan-950/50 border border-cyan-500/40 rounded-xl p-3 text-center">
+                    <span className="text-[11px] font-mono uppercase text-cyan-400 block mb-1">CÓDIGO MESTRE DA SUA EQUIPE ({group.name}):</span>
+                    <div className="font-orbitron font-black text-3xl text-cyan-300">{NOX_MASTER_CODES[group.id]}</div>
+                    <span className="text-[10px] text-slate-400 font-mono mt-1 block">Compartilhe este código na lousa com as outras turmas!</span>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs font-mono text-slate-300 mb-2">
+                      <span>CÓDIGOS DAS OUTRAS BANCADAS:</span>
+                      <button onClick={() => { sound.playClick(); setCollectiveCodes({ ...NOX_MASTER_CODES }); setCollectiveError(null); }} className="text-[10px] text-cyan-400 underline cursor-pointer">✨ Sincronizar Códigos da Lousa (G1 a G8)</button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {GROUPS.map(g => (
+                        <div key={g.id} className={`p-2 rounded-lg border ${g.id === group.id ? 'bg-cyan-950/40 border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.15)]' : 'bg-slate-900/80 border-slate-800'}`}>
+                          <div className="flex justify-between text-[11px] font-mono"><span className="font-bold text-slate-200">{g.id}</span><span className="text-slate-400 text-[10px]">{g.element}</span></div>
+                          <input type="text" placeholder="NOX" value={collectiveCodes[g.id] || ''} onChange={e => setCollectiveCodes(c => ({ ...c, [g.id]: e.target.value }))} className={`w-full text-center py-1 font-mono font-bold text-sm rounded bg-slate-950 border ${g.id === group.id ? 'border-cyan-400 text-cyan-300' : 'border-slate-700 text-slate-100'} focus:outline-none`} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {collectiveError && <div className="bg-rose-950/70 border border-rose-500/60 rounded-lg p-2.5 text-rose-300 text-xs font-mono">⚠️ {collectiveError}</div>}
+
+                  <button onClick={() => {
+                    sound.playClick();
+                    let err = false;
+                    for (let gid of Object.keys(NOX_MASTER_CODES)) {
+                      let uVal = (collectiveCodes[gid] || '').trim().replace(/\s+/g, '');
+                      if (!uVal.startsWith('+') && !uVal.startsWith('-') && !isNaN(Number(uVal)) && Number(uVal) > 0) uVal = `+${uVal}`;
+                      if (uVal !== NOX_MASTER_CODES[gid]) { err = true; break; }
+                    }
+                    if (!err) {
+                      sound.playSuccess();
+                      setShowCollectiveModal(false);
+                      setShowSimulator(true);
+                    } else {
+                      sound.playError();
+                      setCollectiveError('Alguns códigos não conferem com o protocolo.');
+                    }
+                  }} className="w-full py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-emerald-500 hover:brightness-110 text-white font-orbitron font-extrabold text-sm tracking-wider rounded-xl shadow-lg shadow-cyan-950 cursor-pointer">
+                    AUTORIZAR ACESSO AO SIMULADOR DE LANÇAMENTO →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Render React 18 Application Root
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
